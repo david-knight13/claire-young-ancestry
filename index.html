@@ -140,8 +140,8 @@
   #tabs .tab{padding:6px 13px;font-family:Georgia,serif;font-size:12.5px;
     border:1px solid var(--line);background:var(--card);color:var(--ink);
     border-radius:8px;cursor:pointer;}
-  #tabs .tab:hover{background:#f3ecda;}
-  #tabs .tab.on{background:var(--navy);color:#f6f0e2;border-color:var(--navy);}
+  #tabs .tab:hover{background:#fff;}
+  #tabs .tab.on{background:var(--gold);color:#332b07;border-color:#e8c552;font-weight:700;}
 
   /* ---- country toggle ---- */
   #controls .btn.wide.on{background:var(--navy);color:#f6f0e2;border-color:var(--navy);}
@@ -315,13 +315,14 @@ const GRID={
   'Massachusetts':[11,1,'MA'],'New Hampshire':[10,0,'NH'],'Maine':[11,0,'ME'],
   'Acadia':[12,0,'AC'],'Nova Scotia':[12,1,'NS'],
   'Ohio':[8,2,'OH'],'Michigan':[8,1,'MI'],'Iowa':[5,3,'IA'],'Minnesota':[5,2,'MN'],
-  'South Dakota':[4,3,'SD'],'Kansas':[4,5,'KS'],'California':[1,4,'CA']
+  'South Dakota':[4,3,'SD'],'Kansas':[4,5,'KS'],'California':[1,4,'CA'],
+  'Washington':[0,1,'WA'],'Wisconsin':[7,1,'WI']
 };
 const CHAIN=['Florida','Georgia','Alabama','Mississippi','Louisiana','Texas','Arkansas',
   'Missouri','Illinois','Kentucky','Tennessee','South Carolina','North Carolina','Virginia',
   'Maryland','Delaware','Pennsylvania','New Jersey','New York','Connecticut','Rhode Island',
   'Massachusetts','New Hampshire','Maine','Acadia','Nova Scotia',
-  'Ohio','Michigan','Iowa','Minnesota','South Dakota','Kansas','Oregon','California'];
+  'Ohio','Michigan','Wisconsin','Iowa','Minnesota','South Dakota','Kansas','Oregon','Washington','California'];
 const stateColorMap={};
 CHAIN.forEach((s,i)=>{
   const h=i*(286/(CHAIN.length-1));
@@ -349,6 +350,21 @@ function countryColor(c){ return countryColorMap[c]!==undefined?countryColorMap[
 let colorMode='country';                                  // 'state' | 'country'
 function keyOf(n){ return colorMode==='country'?(n._country||'Unknown'):n.primary; }
 function colorOf(n){ return colorMode==='country'?countryColor(n._country):stateColor(n.primary); }
+/* ---- label contrast: white text on dark slices, dark text on light slices ---- */
+function _hslToRgb(h,s,l){ h/=360; if(s===0){const v=l*255;return[v,v,v];}
+  const hue=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t;
+    if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+  const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+  return[hue(p,q,h+1/3)*255,hue(p,q,h)*255,hue(p,q,h-1/3)*255]; }
+function _rgbOf(col){
+  if(!col)return[190,190,190];
+  if(col[0]==='#'){ let h=col.slice(1); if(h.length===3)h=h.split('').map(c=>c+c).join('');
+    const n=parseInt(h,16); return[(n>>16)&255,(n>>8)&255,n&255]; }
+  const m=col.match(/hsl\(\s*([\d.]+)[, ]+([\d.]+)%[, ]+([\d.]+)%/);
+  return m?_hslToRgb(+m[1],+m[2]/100,+m[3]/100):[190,190,190]; }
+function isDarkColor(col){ const[r,g,b]=_rgbOf(col); return (0.299*r+0.587*g+0.114*b)<140; }
+/* selected slices render white, so their label must stay dark */
+function labelFill(n){ return (n.id===selId)?'#352f24':(isDarkColor(colorOf(n))?'#f7f4ec':'#352f24'); }
 
 const stateCount={};
 NODES.forEach(n=>stateCount[n.primary]=(stateCount[n.primary]||0)+1);
@@ -541,6 +557,7 @@ function updateLabels(){
       el.setAttribute('x',0);el.setAttribute('y',0);
       el.removeAttribute('transform');
       el.setAttribute('font-size',fontChart);
+      el.style.fill=labelFill(n);
       el.textContent=n.name||'';
       continue;
     }
@@ -563,6 +580,7 @@ function updateLabels(){
     el.setAttribute('x',tx);el.setAttribute('y',ty);
     el.setAttribute('transform',`rotate(${deg} ${tx} ${ty})`);
     el.setAttribute('font-size',fontChart);
+    el.style.fill=labelFill(n);
     el.textContent=txt;
   }
 }
@@ -587,6 +605,7 @@ function highlight(id){
   document.querySelectorAll('.slice.sel').forEach(e=>e.classList.remove('sel'));
   selId=id;
   if(id&&byId[id])byId[id].forEach(e=>e.classList.add('sel'));
+  updateLabels();
 }
 
 /* ---------- smooth zoom-to-person ---------- */
